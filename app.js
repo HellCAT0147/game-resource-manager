@@ -13,6 +13,7 @@ const STATUS_ORDER = Object.fromEntries(STATUSES.map(s => [s.id, s.order]));
 /* ============ Состояние ============ */
 let resources = [];
 let activeTab = 'trip';
+const sortByTab = { trip: 'urgency', catalog: 'name' }; // у каждой вкладки своя сортировка
 let editingId = null;        // id редактируемого ресурса (null = новый)
 let pendingImage = undefined; // undefined = не трогали, null = убрать, string = новая base64
 
@@ -62,8 +63,7 @@ function matchesSearch(r, q) {
   return !q || r.name.toLowerCase().includes(q);
 }
 
-function sortResources(list) {
-  const mode = el('sort').value;
+function sortResources(list, mode) {
   const byName = (a, b) => a.name.localeCompare(b.name, 'ru');
   if (mode === 'name') return list.sort(byName);
   if (mode === 'status-desc') return list.sort((a, b) => STATUS_ORDER[b.status] - STATUS_ORDER[a.status] || byName(a, b));
@@ -96,8 +96,8 @@ function escapeHTML(s) {
 
 function render() {
   const q = el('search').value.trim().toLowerCase();
-  const tripItems = sortResources(resources.filter(r => r.status !== 'ok' && matchesSearch(r, q)));
-  const catalogItems = sortResources(resources.filter(r => matchesSearch(r, q)));
+  const tripItems = sortResources(resources.filter(r => r.status !== 'ok' && matchesSearch(r, q)), sortByTab.trip);
+  const catalogItems = sortResources(resources.filter(r => matchesSearch(r, q)), sortByTab.catalog);
 
   // Счётчик вылазки (всегда полный, без учёта поиска)
   const tripTotal = resources.filter(r => r.status !== 'ok').length;
@@ -303,11 +303,16 @@ function bind() {
     t.addEventListener('click', () => {
       activeTab = t.dataset.tab;
       document.querySelectorAll('.tab').forEach(x => x.classList.toggle('is-active', x === t));
+      el('sort').value = sortByTab[activeTab]; // показать сортировку активной вкладки
       render();
     }));
 
   el('search').addEventListener('input', render);
-  el('sort').addEventListener('change', render);
+  el('sort').addEventListener('change', () => {
+    sortByTab[activeTab] = el('sort').value; // запомнить выбор именно для этой вкладки
+    render();
+  });
+  el('sort').value = sortByTab[activeTab];
 
   el('trip-list').addEventListener('click', onListClick);
   el('catalog-list').addEventListener('click', onListClick);
