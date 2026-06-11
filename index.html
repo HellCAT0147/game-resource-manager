@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1f33" />
+  <title>S2 Трекер ресурсов</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="title-row">
+      <span class="logo">🌊</span>
+      <h1>Трекер ресурсов</h1>
+    </div>
+    <div class="tabs">
+      <button class="tab is-active" data-tab="trip">
+        Вылазка <span class="badge" id="trip-count">0</span>
+      </button>
+      <button class="tab" data-tab="catalog">Каталог</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Панель управления -->
+    <div class="controls">
+      <input type="search" id="search" class="search" placeholder="Поиск ресурса…" autocomplete="off" />
+      <select id="sort" class="sort" aria-label="Сортировка">
+        <option value="urgency">По срочности</option>
+        <option value="name">По названию</option>
+        <option value="status-desc">Сначала «Достаточно»</option>
+      </select>
+    </div>
+
+    <!-- Список «на вылазку»: только не-зелёные -->
+    <section id="view-trip" class="view">
+      <p class="hint" id="trip-empty" hidden>
+        ✅ Список пуст — на складе всё в норме. Отмечай нехватку во вкладке «Каталог».
+      </p>
+      <ul id="trip-list" class="list"></ul>
+    </section>
+
+    <!-- Полный каталог -->
+    <section id="view-catalog" class="view" hidden>
+      <ul id="catalog-list" class="list"></ul>
+    </section>
+  </main>
+
+  <!-- Плавающая кнопка добавления -->
+  <button id="fab-add" class="fab" aria-label="Добавить ресурс">＋</button>
+
+  <!-- Нижнее меню действий -->
+  <button id="menu-btn" class="menu-btn" aria-label="Меню">⋯</button>
+
+  <!-- Модалка добавления/редактирования -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <h2 id="modal-title">Новый ресурс</h2>
+      <label class="field">
+        <span>Название</span>
+        <input type="text" id="f-name" maxlength="40" placeholder="Например: Титан" />
+      </label>
+
+      <label class="field">
+        <span>Иконка (эмодзи)</span>
+        <input type="text" id="f-icon" maxlength="4" placeholder="⚙️" />
+      </label>
+
+      <div class="field">
+        <span>Фото (опционально)</span>
+        <div class="img-row">
+          <div class="img-preview" id="img-preview">⚙️</div>
+          <div class="img-actions">
+            <input type="file" id="f-image" accept="image/*" hidden />
+            <button type="button" class="btn ghost" id="pick-image">Загрузить</button>
+            <button type="button" class="btn ghost danger" id="clear-image" hidden>Убрать фото</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span>Состояние</span>
+        <div class="status-picker" id="f-status"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn ghost danger" id="delete-btn" hidden>Удалить</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn ghost" id="cancel-btn">Отмена</button>
+        <button type="button" class="btn primary" id="save-btn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка меню -->
+  <div id="menu" class="modal" hidden>
+    <div class="modal-card">
+      <h2>Меню</h2>
+      <button class="btn block" id="reset-all">Сбросить все в «Достаточно» 🟢</button>
+      <button class="btn block" id="export-btn">Экспорт данных (резервная копия)</button>
+      <button class="btn block" id="import-btn">Импорт данных</button>
+      <input type="file" id="import-file" accept="application/json" hidden />
+      <button class="btn block danger" id="wipe-btn">Сбросить каталог к заводскому</button>
+      <div class="modal-actions">
+        <div class="spacer"></div>
+        <button class="btn ghost" id="menu-close">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="seed.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
