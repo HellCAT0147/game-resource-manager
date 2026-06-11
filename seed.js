@@ -35,4 +35,7 @@ window.SEED_RESOURCES = [
   { name: 'Пента',                       icon: '🌱', img: ICON('T_Pent_Fruit_Icon') },
   // — Ресурсы из обломков —
   { name: 'Металлолом',                  icon: '🔧', img: ICON('T_MetalSalvage_Icon') },
+  // — Еда и вода —
+  { name: 'Вода',                        icon: '💧', img: ICON('T_WaterBottle_Icon') },
+  { name: 'Рыба',                        icon: '🐟', img: ICON('T_Halfmoon_01a_Icon') },
 ];
