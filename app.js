@@ -27,10 +27,31 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       resources = JSON.parse(raw);
+      syncSeed();   // подмешать новые ресурсы и иконки из обновлённого каталога
       return;
     }
   } catch (e) { console.warn('Ошибка чтения хранилища', e); }
   seedCatalog();
+}
+
+// Догоняет сохранённый каталог до актуального seed.js, не трогая статусы и
+// пользовательские правки: добавляет новые ресурсы по имени и подставляет
+// иконки тем, у кого их ещё не было. Удалённые вручную ресурсы вернутся.
+function syncSeed() {
+  const seed = window.SEED_RESOURCES || [];
+  const byName = new Map(resources.map(r => [r.name, r]));
+  let changed = false;
+  for (const s of seed) {
+    const existing = byName.get(s.name);
+    if (!existing) {
+      resources.push({ id: uid(), name: s.name, icon: s.icon || '📦', img: s.img || null, image: null, status: 'ok' });
+      changed = true;
+    } else if (existing.img == null && s.img) {
+      existing.img = s.img;   // подлечить иконку, если её не было
+      changed = true;
+    }
+  }
+  if (changed) save();
 }
 
 function seedCatalog() {
@@ -346,6 +367,7 @@ function bind() {
   // Меню
   el('menu-btn').addEventListener('click', () => el('menu').hidden = false);
   el('menu-close').addEventListener('click', closeMenu);
+  el('update-btn').addEventListener('click', forceUpdate);
   el('reset-all').addEventListener('click', resetAllToOk);
   el('export-btn').addEventListener('click', exportData);
   el('import-btn').addEventListener('click', () => el('import-file').click());
@@ -359,7 +381,32 @@ load();
 bind();
 render();
 
-// Регистрация service worker (офлайн)
+// Регистрация service worker (офлайн).
+// Если страница уже под управлением SW, при появлении новой версии
+// (controllerchange) перезагружаемся один раз — чтобы подхватить свежий код.
 if ('serviceWorker' in navigator) {
+  let refreshing = false;
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+  }
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+// Ручной сброс: снять SW, очистить кэши и перезагрузиться (надёжно на мобиле).
+async function forceUpdate() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch (e) { /* игнор */ }
+  location.reload();
 }

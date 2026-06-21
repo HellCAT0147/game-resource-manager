@@ -1,5 +1,5 @@
 // Service worker — кэш оболочки приложения для офлайн-работы.
-const CACHE = 's2-resources-v4';
+const CACHE = 's2-resources-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -22,19 +22,18 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Stale-while-revalidate для своих файлов.
+// Network-first для своих файлов: онлайн — всегда свежее (и обновляем кэш),
+// офлайн — отдаём из кэша. Так новые деплои подхватываются сразу.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  if (new URL(e.request.url).origin !== self.location.origin) return; // сторонние не трогаем
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const network = fetch(e.request).then(resp => {
-        if (resp && resp.status === 200 && resp.type === 'basic') {
-          const copy = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
-        }
-        return resp;
-      }).catch(() => cached);
-      return cached || network;
-    })
+    fetch(e.request).then(resp => {
+      if (resp && resp.status === 200 && resp.type === 'basic') {
+        const copy = resp.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy));
+      }
+      return resp;
+    }).catch(() => caches.match(e.request))
   );
 });
