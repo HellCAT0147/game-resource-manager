@@ -1,11 +1,15 @@
 // Service worker — кэш оболочки приложения для офлайн-работы.
-const CACHE = 's2-resources-v5';
+const CACHE = 's2-resources-v6';
 const ASSETS = [
   './',
   './index.html',
+  './subnautica.html',
+  './stalker.html',
   './styles.css',
+  './launcher.js',
   './app.js',
   './seed.js',
+  './stalker.js',
   './manifest.webmanifest',
   './icon.svg',
 ];

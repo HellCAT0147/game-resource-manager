@@ -266,3 +266,136 @@ h1 { font-size: 19px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
 .btn.block { display: block; width: 100%; text-align: left; background: var(--card); color: var(--text); margin-bottom: 10px; }
 .btn.block.danger { color: var(--out); }
 .btn:active { transform: scale(0.97); }
+a.btn { text-decoration: none; }
+
+/* ====================================================================
+   Темы игр — базовый :root выше = тема Subnautica.
+   Классы на <body> переопределяют палитру под конкретную игру/лаунчер.
+   ==================================================================== */
+body.theme-launcher {
+  --bg: #0a0c10;
+  --bg-2: #0e1116;
+  --card: #171b22;
+  --card-2: #20252e;
+  --text: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #aab2bd;
+  padding-bottom: 0;          /* нет плавающих кнопок — нижний запас не нужен */
+}
+body.theme-stalker {
+  --bg: #12140d;
+  --bg-2: #1a1c14;
+  --card: #23261b;
+  --card-2: #2e3222;
+  --text: #e9e5d6;
+  --muted: #9c9a82;
+  --accent: #c2a44b;     /* радиационный янтарь */
+  --out: #e0532b;        /* ржавчина */
+  --low: #d98a2b;
+  --mid: #d6c133;
+  --ok:  #8aa64a;        /* военный хаки */
+}
+
+/* — Кнопка «сменить игру» в шапке — */
+.switch-game {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  margin-left: -4px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-size: 20px; line-height: 1; font-weight: 700;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.switch-game:active { transform: scale(0.92); }
+
+/* ====================================================================
+   Лаунчер — экран выбора игры
+   ==================================================================== */
+.launcher {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: calc(28px + var(--safe-top)) 18px calc(28px + var(--safe-bottom));
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.launcher-head { margin: 16px 4px 24px; }
+.launcher-head h1 { font-size: 24px; margin: 0 0 8px; }
+.launcher-sub { color: var(--muted); margin: 0; font-size: 15px; line-height: 1.4; }
+
+.game-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.game-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-left: 5px solid var(--game-accent, var(--accent));
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  text-decoration: none;
+  color: var(--text);
+}
+.game-card:active { transform: scale(0.985); }
+.game-subnautica { --game-accent: #28c2ff; }
+.game-stalker { --game-accent: #c2a44b; }
+
+.game-icon {
+  width: 56px; height: 56px; flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--card-2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px;
+}
+.game-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.game-name { font-size: 18px; font-weight: 700; }
+.game-desc { font-size: 13px; color: var(--muted); }
+.game-tag {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  color: var(--low); border: 1px solid var(--low); border-radius: 6px;
+  padding: 1px 6px; margin-left: 4px; vertical-align: middle;
+}
+.game-chevron { color: var(--muted); font-size: 26px; flex-shrink: 0; }
+
+.game-last {
+  display: none;
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 700;
+  color: var(--game-accent, var(--accent));
+  border: 1px solid var(--game-accent, var(--accent));
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+.game-card.is-last {
+  border-color: var(--game-accent, var(--accent));
+  box-shadow: 0 0 0 1px var(--game-accent, var(--accent)) inset;
+}
+.game-card.is-last .game-last { display: inline-flex; align-items: center; gap: 5px; }
+.game-card.is-last .game-last::before { content: "●"; font-size: 8px; }
+
+.launcher-foot {
+  margin: auto 4px 0;
+  padding-top: 24px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ====================================================================
+   Экран-заглушка «в разработке»
+   ==================================================================== */
+.wip {
+  text-align: center;
+  padding: 44px 24px;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center;
+}
+.wip-icon { font-size: 56px; }
+.wip h2 { margin: 10px 0 0; font-size: 20px; }
+.wip .hint { padding: 14px 0 0; }
+.wip .btn { margin-top: 22px; }

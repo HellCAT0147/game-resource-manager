@@ -1,13 +1,13 @@
 {
-  "name": "Трекер ресурсов Subnautica 2",
-  "short_name": "S2 Ресурсы",
-  "description": "Отмечай нехватку ресурсов на складе и собирай список на вылазку.",
+  "name": "Трекеры ресурсов игр",
+  "short_name": "Трекеры",
+  "description": "Выбери игру (Subnautica 2 или S.T.A.L.K.E.R. 2) и отмечай нехватку ресурсов на складе.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#071624",
-  "theme_color": "#0b1f33",
+  "background_color": "#0a0c10",
+  "theme_color": "#0e1116",
   "icons": [
     {
       "src": "icon.svg",
