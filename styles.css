@@ -85,7 +85,29 @@ h1 { font-size: 19px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
 }
 .search { flex: 1; min-width: 0; }
 .search:focus, .sort:focus { border-color: var(--accent); }
-.sort { max-width: 46%; }
+
+/* Селект сортировки — свой вид вместо нативного, со своей стрелкой */
+.select-wrap { position: relative; display: inline-flex; min-width: 0; max-width: 46%; }
+.sort {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px;
+  cursor: pointer;
+  accent-color: var(--accent);   /* подсветка выбранного пункта в списке */
+}
+.sort::-ms-expand { display: none; }
+.sort option { background: var(--bg-2); color: var(--text); }
+.select-arrow {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%);
+  width: 16px; height: 16px;
+  pointer-events: none;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.sort:focus + .select-arrow { color: var(--accent); transform: translateY(-50%) rotate(180deg); }
 
 /* — Список — */
 .view { padding: 0 16px; }
@@ -305,10 +327,10 @@ body.theme-stalker {
   background: var(--card);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text);
-  font-size: 20px; line-height: 1; font-weight: 700;
   text-decoration: none;
   flex-shrink: 0;
 }
+.switch-game svg { width: 20px; height: 20px; display: block; }
 .switch-game:active { transform: scale(0.92); }
 
 /* ====================================================================
@@ -399,3 +421,130 @@ body.theme-stalker {
 .wip h2 { margin: 10px 0 0; font-size: 20px; }
 .wip .hint { padding: 14px 0 0; }
 .wip .btn { margin-top: 22px; }
+
+/* ====================================================================
+   S.T.A.L.K.E.R. 2 — «Выгодный хабар»
+   ==================================================================== */
+/* Грузоподъёмность и сводка «что нести» */
+.carry-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px 8px;
+  flex-wrap: wrap;
+}
+.budget-field { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.budget-field > span { font-size: 13px; color: var(--muted); white-space: nowrap; }
+#budget {
+  width: 96px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 15px; outline: none;
+}
+#budget:focus { border-color: var(--accent); }
+.carry-summary {
+  flex: 1; min-width: 170px;
+  font-size: 13px; line-height: 1.4; color: var(--text);
+  background: var(--card);
+  border-radius: 12px;
+  border-left: 3px solid var(--accent);
+  padding: 9px 12px;
+}
+.carry-summary[hidden] { display: none; }
+.carry-summary .muted { color: var(--muted); }
+
+.stats { padding: 0 16px 10px; font-size: 13px; color: var(--muted); }
+
+/* Заголовок группы категории */
+.group-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 8px 2px 0;
+  margin-top: 6px;
+}
+.group-head:first-child { margin-top: 0; }
+.group-title { font-size: 15px; font-weight: 700; }
+.group-sum { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+/* Карточка предмета */
+.item-card[data-tier="good"] { border-left-color: var(--ok); }
+.item-card[data-tier="mid"]  { border-left-color: var(--mid); }
+.item-card[data-tier="low"]  { border-left-color: var(--out); }
+.item-card[data-take="none"] { opacity: 0.5; }
+
+.item-dens {
+  width: 62px; flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--card-2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 6px 2px;
+  text-align: center;
+}
+.item-dens b { font-size: 16px; font-weight: 800; line-height: 1.05; }
+.item-dens span { font-size: 9px; color: var(--muted); margin-top: 2px; }
+.item-card[data-tier="good"] .item-dens b { color: var(--ok); }
+.item-card[data-tier="mid"]  .item-dens b { color: var(--mid); }
+.item-card[data-tier="low"]  .item-dens b { color: var(--out); }
+
+.item-card .card-name { margin-bottom: 4px; }
+.item-meta { font-size: 13px; color: var(--muted); }
+
+.take-badge {
+  flex-shrink: 0; align-self: center;
+  font-size: 11px; font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 9px;
+  white-space: nowrap;
+}
+.take-badge.full { color: var(--ok);  border: 1px solid var(--ok); }
+.take-badge.part { color: var(--mid); border: 1px solid var(--mid); }
+.take-badge.none { color: var(--muted); border: 1px solid var(--muted); }
+
+/* Редактор: числовые поля, строка полей, подсказка выгодности, выбор категории */
+.field input[type="number"] {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px; outline: none;
+}
+.field-row { display: flex; gap: 10px; }
+.field-row .field { flex: 1; }
+.field-row .qty-field { flex: 0 0 84px; }
+
+.density-hint {
+  margin: -8px 0 14px;
+  min-height: 18px;
+  font-size: 13px; font-weight: 600;
+  color: var(--accent);
+}
+
+.cat-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-picker button {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.cat-picker button > span { font-size: 15px; }
+.cat-picker button.active {
+  border-color: var(--accent);
+  background: var(--card-2);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.cat-picker button:active { transform: scale(0.96); }
+
+.cat-hint {
+  margin: 12px 0 0;
+  font-size: 12px; line-height: 1.45;
+  color: var(--muted);
+  border-left: 3px solid var(--accent);
+  padding: 6px 0 6px 10px;
+}
+.cat-hint[hidden] { display: none; }

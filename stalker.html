@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#1a1c14" />
-  <title>S.T.A.L.K.E.R. 2 — Трекер ресурсов</title>
+  <title>S.T.A.L.K.E.R. 2 — Выгодный хабар</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon.svg" />
@@ -13,25 +13,115 @@
 <body class="theme-stalker">
   <header class="app-header">
     <div class="title-row">
-      <a class="switch-game" href="index.html" aria-label="Сменить игру" title="Сменить игру">‹</a>
+      <a class="switch-game" href="index.html" aria-label="Сменить игру" title="Сменить игру">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </a>
       <span class="logo">☢️</span>
-      <h1>S.T.A.L.K.E.R. 2</h1>
+      <h1>Выгодный хабар</h1>
     </div>
   </header>
 
   <main>
-    <section class="view">
-      <div class="wip">
-        <div class="wip-icon">🛠️</div>
-        <h2>Трекер в разработке</h2>
-        <p class="hint">
-          Здесь появится трекер ресурсов для S.T.A.L.K.E.R. 2 — с сохранением в этом
-          браузере и импортом/экспортом данных, как в версии для Subnautica 2.
-        </p>
-        <a class="btn primary" href="index.html">← Вернуться к выбору игры</a>
+    <!-- Поиск и сортировка -->
+    <div class="controls">
+      <input type="search" id="search" class="search" placeholder="Поиск предмета…" autocomplete="off" />
+      <div class="select-wrap">
+        <select id="sort" class="sort" aria-label="Сортировка">
+          <option value="value">По выгодности</option>
+          <option value="price">По цене</option>
+          <option value="weight">По весу</option>
+          <option value="name">По названию</option>
+        </select>
+        <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </div>
+    </div>
+
+    <!-- Грузоподъёмность и сводка «что нести» -->
+    <div class="carry-bar">
+      <label class="budget-field">
+        <span>Унести, кг</span>
+        <input type="number" id="budget" inputmode="decimal" min="0" step="0.1" placeholder="напр. 20" />
+      </label>
+      <div id="carry-summary" class="carry-summary" hidden></div>
+    </div>
+
+    <!-- Сводка по всему хабару -->
+    <div id="stats" class="stats"></div>
+
+    <!-- Список с группами по категориям -->
+    <section class="view">
+      <p class="hint" id="empty" hidden>
+        Пока пусто. Добавь найденный предмет кнопкой ＋ — цену и вес посмотри у торговца или в инвентаре.
+      </p>
+      <p class="hint" id="empty-search" hidden>Ничего не найдено.</p>
+      <ul id="list" class="list"></ul>
     </section>
   </main>
+
+  <!-- Добавить предмет -->
+  <button id="fab-add" class="fab" aria-label="Добавить предмет">＋</button>
+
+  <!-- Меню -->
+  <button id="menu-btn" class="menu-btn" aria-label="Меню">⋯</button>
+
+  <!-- Модалка добавления/редактирования -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <h2 id="modal-title">Новый предмет</h2>
+
+      <label class="field">
+        <span>Название</span>
+        <input type="text" id="f-name" maxlength="60" placeholder="Напр.: АКМ, аптечка, болт…" />
+      </label>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Цена (крб)</span>
+          <input type="number" id="f-price" inputmode="decimal" min="0" step="1" placeholder="0" />
+        </label>
+        <label class="field">
+          <span>Вес, кг</span>
+          <input type="number" id="f-weight" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+        </label>
+        <label class="field qty-field">
+          <span>Кол-во</span>
+          <input type="number" id="f-qty" inputmode="numeric" min="1" step="1" value="1" />
+        </label>
+      </div>
+
+      <p class="density-hint" id="f-density"></p>
+
+      <div class="field">
+        <span>Категория</span>
+        <div class="cat-picker" id="f-category"></div>
+      </div>
+
+      <p class="cat-hint" id="f-cathint" hidden></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn ghost danger" id="delete-btn" hidden>Удалить</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn ghost" id="cancel-btn">Отмена</button>
+        <button type="button" class="btn primary" id="save-btn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка меню -->
+  <div id="menu" class="modal" hidden>
+    <div class="modal-card">
+      <h2>Меню</h2>
+      <button class="btn block" id="export-btn">Экспорт данных (резервная копия)</button>
+      <button class="btn block" id="import-btn">Импорт данных</button>
+      <input type="file" id="import-file" accept="application/json" hidden />
+      <button class="btn block danger" id="wipe-btn">Очистить весь список</button>
+      <a class="btn block" href="index.html">← Сменить игру</a>
+      <div class="modal-actions">
+        <div class="spacer"></div>
+        <button class="btn ghost" id="menu-close">Закрыть</button>
+      </div>
+    </div>
+  </div>
 
   <script src="stalker.js"></script>
 </body>

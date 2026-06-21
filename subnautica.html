@@ -13,7 +13,9 @@
 <body class="theme-subnautica">
   <header class="app-header">
     <div class="title-row">
-      <a class="switch-game" href="index.html" aria-label="Сменить игру" title="Сменить игру">←</a>
+      <a class="switch-game" href="index.html" aria-label="Сменить игру" title="Сменить игру">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </a>
       <span class="logo">🌊</span>
       <h1>Трекер ресурсов</h1>
     </div>
@@ -29,11 +31,14 @@
     <!-- Панель управления -->
     <div class="controls">
       <input type="search" id="search" class="search" placeholder="Поиск ресурса…" autocomplete="off" />
-      <select id="sort" class="sort" aria-label="Сортировка">
-        <option value="urgency">По срочности</option>
-        <option value="name">По названию</option>
-        <option value="status-desc">Сначала «Достаточно»</option>
-      </select>
+      <div class="select-wrap">
+        <select id="sort" class="sort" aria-label="Сортировка">
+          <option value="urgency">По срочности</option>
+          <option value="name">По названию</option>
+          <option value="status-desc">Сначала «Достаточно»</option>
+        </select>
+        <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
     </div>
 
     <!-- Список «на вылазку»: только не-зелёные -->

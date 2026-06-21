@@ -5,8 +5,25 @@
    Помогает по цене и весу решить, что нести торговцу, а что бросить.
    Никаких стартовых данных (без спойлеров): всё добавляется вручную.
    Главная метрика — выгодность = цена / вес (крб за кг).
+   Список разделён на группы по категориям.
    Данные и грузоподъёмность хранятся в localStorage; есть импорт/экспорт.
    ============================================================ */
+
+/* ============ Категории (порядок = порядок групп в списке) ============ */
+const CATEGORIES = [
+  { id: 'food',     label: 'Еда',         icon: '🥫' },
+  { id: 'pistol',   label: 'Пистолет',    icon: '🔫' },
+  { id: 'rifle',    label: 'Автомат',     icon: '🪖' },
+  { id: 'shotgun',  label: 'Дробовик',    icon: '💥' },
+  { id: 'ammo',     label: 'Патроны',     icon: '🧨' },
+  { id: 'armor',    label: 'Броня',       icon: '🛡️' },
+  { id: 'other',    label: 'Другое',      icon: '📦' },
+  { id: 'artifact', label: 'Артефакт',    icon: '🔮' },
+  { id: 'grenade',  label: 'Граната',     icon: '💣' },
+  { id: 'meds',     label: 'Медикаменты', icon: '💊' },
+];
+const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+const DEFAULT_CAT = 'other';
 
 /* ============ Хранилище ============ */
 const STORAGE_KEY = 'stalker2-resource-tracker:v1';
@@ -35,7 +52,6 @@ function num(v, fallback = 0) {
 }
 
 function fmt(n) {
-  // аккуратное число: целые без дробей, иначе до 1 знака
   if (!Number.isFinite(n)) return '∞';
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
@@ -65,6 +81,7 @@ function normalizeItems(arr) {
     price: Math.max(0, num(r.price, 0)),
     weight: Math.max(0, num(r.weight, 0)),
     qty: Math.max(1, Math.round(num(r.qty, 1))),
+    category: CAT_BY_ID[r.category] ? r.category : DEFAULT_CAT,
   }));
 }
 
@@ -78,8 +95,8 @@ function save() {
 }
 
 /* ============ Расчёты ============ */
-// Тир выгодности (для цветовой метки) относительно всего списка:
-// низ трети — «копейки» (red), середина — mid, верх — выгодное (green).
+// Тир выгодности (цветовая метка) относительно всего хабара:
+// нижняя треть — «копейки» (low), середина — mid, верх — выгодное (good).
 function densityTiers() {
   const sorted = [...items].sort((a, b) => density(a) - density(b)); // по возрастанию
   const n = sorted.length;
@@ -92,7 +109,7 @@ function densityTiers() {
 }
 
 // Жадный набор под грузоподъёмность: берём самое выгодное по крб/кг,
-// частичными стопками, пока не кончится свободный вес.
+// частичными стопками, пока не кончится свободный вес. Сквозной по всем категориям.
 function computeCarry() {
   if (!(budget > 0)) return null;
   const ranked = [...items].sort((a, b) => density(b) - density(a)); // выгодные первыми
@@ -128,12 +145,19 @@ function sortItems(list) {
   return list.sort((a, b) => density(b) - density(a) || byName(a, b));
 }
 
+function groupHeadHTML(cat, count, value, weight) {
+  return `
+    <li class="group-head">
+      <span class="group-title">${cat.icon} ${cat.label}</span>
+      <span class="group-sum">${count} · 🪙 ${fmt(value)} · ⚖️ ${fmt(weight)} кг</span>
+    </li>`;
+}
+
 function cardHTML(it, tier, takeUnits) {
   const dens = density(it);
   const meta = `🪙 ${fmt(it.price)} · ⚖️ ${fmt(it.weight)} кг` + (it.qty > 1 ? ` · ×${it.qty}` : '');
 
-  let takeBadge = '';
-  let takeAttr = '';
+  let takeBadge = '', takeAttr = '';
   if (takeUnits !== null) {
     if (takeUnits <= 0) {
       takeAttr = ' data-take="none"';
@@ -149,9 +173,7 @@ function cardHTML(it, tier, takeUnits) {
 
   return `
     <li class="card item-card" data-id="${it.id}" data-tier="${tier}"${takeAttr}>
-      <div class="item-dens" data-act="edit">
-        <b>${fmt(dens)}</b><span>крб/кг</span>
-      </div>
+      <div class="item-dens" data-act="edit"><b>${fmt(dens)}</b><span>крб/кг</span></div>
       <div class="card-body" data-act="edit">
         <div class="card-name">${escapeHTML(it.name)}<span class="edit-hint">✎</span></div>
         <div class="item-meta">${meta}</div>
@@ -164,16 +186,25 @@ function render() {
   const q = el('search').value.trim().toLowerCase();
   const carry = computeCarry();
   const tiers = densityTiers();
+  const filtered = items.filter(it => matchesSearch(it, q));
 
-  const shown = sortItems(items.filter(it => matchesSearch(it, q)));
-  el('list').innerHTML = shown
-    .map(it => cardHTML(it, tiers.get(it.id) || 'mid', carry ? (carry.take.get(it.id) || 0) : null))
-    .join('');
+  let html = '';
+  for (const cat of CATEGORIES) {
+    const group = sortItems(filtered.filter(it => it.category === cat.id));
+    if (!group.length) continue;
+    const gValue = group.reduce((s, it) => s + it.price * it.qty, 0);
+    const gWeight = group.reduce((s, it) => s + it.weight * it.qty, 0);
+    html += groupHeadHTML(cat, group.length, gValue, gWeight);
+    html += group.map(it =>
+      cardHTML(it, tiers.get(it.id) || 'mid', carry ? (carry.take.get(it.id) || 0) : null)
+    ).join('');
+  }
+  el('list').innerHTML = html;
 
   // Пустые состояния
   const hasItems = items.length > 0;
   el('empty').hidden = hasItems;
-  el('empty-search').hidden = !(hasItems && shown.length === 0);
+  el('empty-search').hidden = !(hasItems && filtered.length === 0);
 
   // Сводка по всему хабару
   const totalValue = items.reduce((s, it) => s + it.price * it.qty, 0);
@@ -197,13 +228,41 @@ function renderCarrySummary(carry) {
 }
 
 /* ============ Редактор ============ */
+function buildCategoryPicker() {
+  el('f-category').innerHTML = CATEGORIES.map(c =>
+    `<button type="button" data-c="${c.id}"><span>${c.icon}</span>${c.label}</button>`
+  ).join('');
+}
+
+function setPickerCategory(id) {
+  document.querySelectorAll('#f-category button').forEach(b =>
+    b.classList.toggle('active', b.dataset.c === id));
+}
+
+function currentPickerCategory() {
+  const a = document.querySelector('#f-category button.active');
+  return a ? a.dataset.c : DEFAULT_CAT;
+}
+
+function updateCatHint(cat) {
+  const box = el('f-cathint');
+  if (cat === 'ammo') {
+    box.hidden = false;
+    box.textContent = 'Патроны в S.T.A.L.K.E.R. 2 считаются поштучно: цену и вес указывай за 1 патрон, а в «Кол-во» — число патронов.';
+  } else {
+    box.hidden = true;
+    box.textContent = '';
+  }
+}
+
 function liveDensity() {
   const price = Math.max(0, num(el('f-price').value, 0));
   const weight = Math.max(0, num(el('f-weight').value, 0));
-  const d = weight > 0 ? price / weight : (price > 0 ? Infinity : 0);
-  el('f-density').textContent = weight > 0 || price === 0
-    ? `Выгодность: ${fmt(d)} крб/кг`
-    : 'Укажи вес больше 0';
+  if (weight > 0) {
+    el('f-density').textContent = `Выгодность: ${fmt(price / weight)} крб/кг`;
+  } else {
+    el('f-density').textContent = price > 0 ? 'Укажи вес больше 0' : '';
+  }
 }
 
 function openEditor(it) {
@@ -213,6 +272,9 @@ function openEditor(it) {
   el('f-price').value = it ? it.price : '';
   el('f-weight').value = it ? it.weight : '';
   el('f-qty').value = it ? it.qty : 1;
+  const cat = it ? it.category : DEFAULT_CAT;
+  setPickerCategory(cat);
+  updateCatHint(cat);
   el('delete-btn').hidden = !it;
   liveDensity();
   el('modal').hidden = false;
@@ -231,12 +293,13 @@ function saveEditor() {
   const weight = Math.max(0, num(el('f-weight').value, 0));
   if (!(weight > 0)) { alert('Укажи вес больше 0 — без веса не посчитать выгодность.'); el('f-weight').focus(); return; }
   const qty = Math.max(1, Math.round(num(el('f-qty').value, 1)));
+  const category = currentPickerCategory();
 
   if (editingId) {
     const it = items.find(x => x.id === editingId);
-    Object.assign(it, { name, price, weight, qty });
+    Object.assign(it, { name, price, weight, qty, category });
   } else {
-    items.push({ id: uid(), name, price, weight, qty });
+    items.push({ id: uid(), name, price, weight, qty, category });
   }
   save();
   render();
@@ -320,6 +383,10 @@ function bind() {
   el('save-btn').addEventListener('click', saveEditor);
   el('cancel-btn').addEventListener('click', closeEditor);
   el('delete-btn').addEventListener('click', deleteCurrent);
+  el('f-category').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b) { setPickerCategory(b.dataset.c); updateCatHint(b.dataset.c); }
+  });
   el('f-price').addEventListener('input', liveDensity);
   el('f-weight').addEventListener('input', liveDensity);
 
@@ -337,6 +404,7 @@ function bind() {
 }
 
 /* ============ Старт ============ */
+buildCategoryPicker();
 load();
 el('budget').value = budget || '';
 el('sort').value = sortMode;
