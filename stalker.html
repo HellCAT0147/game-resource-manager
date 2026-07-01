@@ -76,7 +76,7 @@
 
       <div class="field-row">
         <label class="field">
-          <span>Цена (крб)</span>
+          <span>Цена, ₽</span>
           <input type="number" id="f-price" inputmode="decimal" min="0" step="1" placeholder="0" />
         </label>
         <label class="field">
@@ -85,7 +85,7 @@
         </label>
         <label class="field qty-field">
           <span>Кол-во</span>
-          <input type="number" id="f-qty" inputmode="numeric" min="1" step="1" value="1" />
+          <input type="number" id="f-qty" inputmode="numeric" min="0" step="1" value="1" />
         </label>
       </div>
 
@@ -119,6 +119,24 @@
       <div class="modal-actions">
         <div class="spacer"></div>
         <button class="btn ghost" id="menu-close">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка быстрого ввода дельты количества -->
+  <div id="modal-delta" class="modal" hidden>
+    <div class="modal-card">
+      <h2>Изменить количество</h2>
+      <p class="delta-sub"><b id="delta-name"></b></p>
+      <label class="field">
+        <span>На сколько штук</span>
+        <input type="number" id="delta-input" inputmode="numeric" min="1" step="1" placeholder="напр. 40" />
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" id="delta-cancel">Отмена</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn ghost danger" id="delta-minus">− потратил</button>
+        <button type="button" class="btn primary" id="delta-plus">+ нашёл</button>
       </div>
     </div>
   </div>

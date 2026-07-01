@@ -1,5 +1,5 @@
 // Service worker — кэш оболочки приложения для офлайн-работы.
-const CACHE = 's2-resources-v8';
+const CACHE = 's2-resources-v9';
 const ASSETS = [
   './',
   './index.html',

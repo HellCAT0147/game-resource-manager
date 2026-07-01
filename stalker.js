@@ -4,7 +4,7 @@
    S.T.A.L.K.E.R. 2 — «Выгодный хабар»
    Помогает по цене и весу решить, что нести торговцу, а что бросить.
    Никаких стартовых данных (без спойлеров): всё добавляется вручную.
-   Главная метрика — выгодность = цена / вес (крб за кг).
+   Главная метрика — выгодность = цена / вес (₽ за кг).
    Список разделён на группы по категориям.
    Данные и грузоподъёмность хранятся в localStorage; есть импорт/экспорт.
    ============================================================ */
@@ -21,6 +21,7 @@ const CATEGORIES = [
   { id: 'artifact', label: 'Артефакт',    icon: '🔮' },
   { id: 'grenade',  label: 'Граната',     icon: '💣' },
   { id: 'meds',     label: 'Медикаменты', icon: '💊' },
+  { id: 'antirad',  label: 'Антирад',     icon: '☢️' },
 ];
 const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 const DEFAULT_CAT = 'other';
@@ -42,7 +43,7 @@ function uid() {
 }
 
 function density(it) {
-  // крб за кг. Невесомое (вес ≤ 0) считаем «бесконечно выгодным».
+  // ₽ за кг. Невесомое (вес ≤ 0) считаем «бесконечно выгодным».
   return it.weight > 0 ? it.price / it.weight : Infinity;
 }
 
@@ -80,7 +81,7 @@ function normalizeItems(arr) {
     name: String(r.name || 'Без названия'),
     price: Math.max(0, num(r.price, 0)),
     weight: Math.max(0, num(r.weight, 0)),
-    qty: Math.max(1, Math.round(num(r.qty, 1))),
+    qty: Math.max(0, Math.round(num(r.qty, 1))), // 0 = кончилось (позиция остаётся шаблоном)
     category: CAT_BY_ID[r.category] ? r.category : DEFAULT_CAT,
   }));
 }
@@ -108,7 +109,7 @@ function densityTiers() {
   return tier;
 }
 
-// Жадный набор под грузоподъёмность: берём самое выгодное по крб/кг,
+// Жадный набор под грузоподъёмность: берём самое выгодное по ₽/кг,
 // частичными стопками, пока не кончится свободный вес. Сквозной по всем категориям.
 function computeCarry() {
   if (!(budget > 0)) return null;
@@ -141,7 +142,7 @@ function sortItems(list) {
   if (sortMode === 'name') return list.sort(byName);
   if (sortMode === 'price') return list.sort((a, b) => b.price * b.qty - a.price * a.qty || byName(a, b));
   if (sortMode === 'weight') return list.sort((a, b) => b.weight * b.qty - a.weight * a.qty || byName(a, b));
-  // value (по умолчанию): по выгодности крб/кг
+  // value (по умолчанию): по выгодности ₽/кг
   return list.sort((a, b) => density(b) - density(a) || byName(a, b));
 }
 
@@ -149,13 +150,13 @@ function groupHeadHTML(cat, count, value, weight) {
   return `
     <li class="group-head">
       <span class="group-title">${cat.icon} ${cat.label}</span>
-      <span class="group-sum">${count} · 🪙 ${fmt(value)} · ⚖️ ${fmt(weight)} кг</span>
+      <span class="group-sum">${count} · ₽ ${fmt(value)} · ⚖️ ${fmt(weight)} кг</span>
     </li>`;
 }
 
 function cardHTML(it, tier, takeUnits) {
   const dens = density(it);
-  const meta = `🪙 ${fmt(it.price)} · ⚖️ ${fmt(it.weight)} кг` + (it.qty > 1 ? ` · ×${it.qty}` : '');
+  const meta = `₽ ${fmt(it.price)} · ⚖️ ${fmt(it.weight)} кг`; // кол-во теперь живёт в степпере справа
 
   let takeBadge = '', takeAttr = '';
   if (takeUnits !== null) {
@@ -171,14 +172,25 @@ function cardHTML(it, tier, takeUnits) {
     }
   }
 
+  const cls = 'card item-card' + (it.qty === 0 ? ' is-empty' : '');
+  // На нуле кнопка «−» превращается в «убрать» — чтобы кончившийся расходник убирался без модалки.
+  const downBtn = it.qty === 0
+    ? `<button class="qty-btn remove" data-act="remove" type="button" aria-label="Убрать из списка">✕</button>`
+    : `<button class="qty-btn" data-act="dec" type="button" aria-label="Убавить один">−</button>`;
+
   return `
-    <li class="card item-card" data-id="${it.id}" data-tier="${tier}"${takeAttr}>
-      <div class="item-dens" data-act="edit"><b>${fmt(dens)}</b><span>крб/кг</span></div>
+    <li class="${cls}" data-id="${it.id}" data-tier="${tier}"${takeAttr}>
+      <div class="item-dens" data-act="edit"><b>${fmt(dens)}</b><span>₽/кг</span></div>
       <div class="card-body" data-act="edit">
         <div class="card-name">${escapeHTML(it.name)}<span class="edit-hint">✎</span></div>
         <div class="item-meta">${meta}</div>
+        ${takeBadge}
       </div>
-      ${takeBadge}
+      <div class="qty-ctl" data-act="qty">
+        <button class="qty-btn" data-act="inc" type="button" aria-label="Прибавить один">+</button>
+        <b class="qty-val" data-act="delta" title="Ввести число">×${it.qty}</b>
+        ${downBtn}
+      </div>
     </li>`;
 }
 
@@ -210,7 +222,7 @@ function render() {
   const totalValue = items.reduce((s, it) => s + it.price * it.qty, 0);
   const totalWeight = items.reduce((s, it) => s + it.weight * it.qty, 0);
   el('stats').innerHTML = hasItems
-    ? `Всего: <b>${items.length}</b> поз · 🪙 ${fmt(totalValue)} · ⚖️ ${fmt(totalWeight)} кг`
+    ? `Всего: <b>${items.length}</b> поз · ₽ ${fmt(totalValue)} · ⚖️ ${fmt(totalWeight)} кг`
     : '';
 
   renderCarrySummary(carry);
@@ -222,7 +234,7 @@ function renderCarrySummary(carry) {
   box.hidden = false;
   const leftWeight = Math.max(0, budget - carry.totalWeight);
   box.innerHTML =
-    `Нести: <b>${carry.totalUnits}</b> шт · 🪙 <b>${fmt(carry.totalValue)}</b> · ` +
+    `Нести: <b>${carry.totalUnits}</b> шт · ₽ <b>${fmt(carry.totalValue)}</b> · ` +
     `⚖️ ${fmt(carry.totalWeight)} / ${fmt(budget)} кг` +
     (leftWeight > 0.05 ? ` <span class="muted">(свободно ${fmt(leftWeight)})</span>` : '');
 }
@@ -259,7 +271,7 @@ function liveDensity() {
   const price = Math.max(0, num(el('f-price').value, 0));
   const weight = Math.max(0, num(el('f-weight').value, 0));
   if (weight > 0) {
-    el('f-density').textContent = `Выгодность: ${fmt(price / weight)} крб/кг`;
+    el('f-density').textContent = `Выгодность: ${fmt(price / weight)} ₽/кг`;
   } else {
     el('f-density').textContent = price > 0 ? 'Укажи вес больше 0' : '';
   }
@@ -292,7 +304,7 @@ function saveEditor() {
   const price = Math.max(0, num(el('f-price').value, 0));
   const weight = Math.max(0, num(el('f-weight').value, 0));
   if (!(weight > 0)) { alert('Укажи вес больше 0 — без веса не посчитать выгодность.'); el('f-weight').focus(); return; }
-  const qty = Math.max(1, Math.round(num(el('f-qty').value, 1)));
+  const qty = Math.max(0, Math.round(num(el('f-qty').value, 1)));
   const category = currentPickerCategory();
 
   if (editingId) {
@@ -315,12 +327,118 @@ function deleteCurrent() {
   closeEditor();
 }
 
-/* ============ Клик по карточке ============ */
+/* ============ Взаимодействие с карточкой ============ */
+// Тап по имени/цене/выгодности — редактор; степпер −/×N/+ меняет количество на месте.
 function onListClick(e) {
-  const card = e.target.closest('.card');
+  const card = e.target.closest('.item-card');
   if (!card) return;
-  const it = items.find(x => x.id === card.dataset.id);
+  const id = card.dataset.id;
+  const act = e.target.closest('[data-act]')?.dataset.act || null;
+
+  if (act === 'inc' || act === 'dec' || act === 'qty') return; // степпер — через pointer / буфер промаха
+  if (act === 'remove') { removeItem(id); return; }
+  if (act === 'delta')  { openDeltaModal(id); return; }
+
+  const it = items.find(x => x.id === id);
   if (it) openEditor(it);
+}
+
+function removeItem(id) {
+  const it = items.find(x => x.id === id);
+  if (!it) return;
+  if (!confirm(`Убрать «${it.name}» из списка?`)) return;
+  items = items.filter(x => x.id !== id);
+  save();
+  render();
+}
+
+/* ---- Инлайн-изменение количества (степпер + автоповтор на удержании) ---- */
+function haptic() { try { navigator.vibrate?.(8); } catch (_) {} }
+
+// Меняет qty и обновляет ТОЛЬКО число на карточке (дёшево, без пересборки списка).
+// Полный render() с пересчётом сумм/выгодности/сортировки — отложенно, по окончании серии (scheduleCommit).
+function changeQty(id, delta, card) {
+  const it = items.find(x => x.id === id);
+  if (!it) return;
+  const next = Math.max(0, it.qty + delta);
+  if (next === it.qty) return;
+  it.qty = next;
+  const valEl = card && card.querySelector('.qty-val');
+  if (valEl) valEl.textContent = '×' + it.qty;
+  if (card) card.classList.toggle('is-empty', it.qty === 0);
+  haptic();
+}
+
+// Отложенная запись+перерисовка: список не «прыгает» под пальцем во время серии,
+// а после паузы приходит в корректный вид (суммы, сортировка, «убрать» на нуле).
+let commitTimer = null;
+function scheduleCommit() {
+  clearTimeout(commitTimer);
+  commitTimer = setTimeout(commit, 300);
+}
+function commit() {
+  clearTimeout(commitTimer);
+  commitTimer = null;
+  save();
+  render();
+}
+function flushCommit() { if (commitTimer) commit(); } // страховка при сворачивании PWA
+
+let hold = null;
+function startHold(e, btn) {
+  const card = btn.closest('.item-card');
+  if (!card) return;
+  const dir = btn.dataset.act === 'inc' ? 1 : -1;
+  changeQty(card.dataset.id, dir, card);            // первый шаг сразу
+  hold = { id: card.dataset.id, dir, card, x: e.clientX, y: e.clientY, step: 1, ticks: 0 };
+  hold.timer = setTimeout(() => {                    // затем автоповтор с ускорением
+    hold.interval = setInterval(() => {
+      hold.ticks++;
+      hold.step = hold.ticks > 12 ? 10 : hold.ticks > 5 ? 5 : 1;
+      changeQty(hold.id, hold.dir * hold.step, hold.card);
+    }, 90);
+  }, 350);
+}
+function moveHold(e) {                                // сдвиг пальца = это скролл, глушим автоповтор
+  if (hold && (Math.abs(e.clientX - hold.x) > 12 || Math.abs(e.clientY - hold.y) > 12)) endHold();
+}
+function endHold() {
+  if (!hold) return;
+  clearTimeout(hold.timer);
+  clearInterval(hold.interval);
+  hold = null;
+  scheduleCommit();
+}
+function onListPointerDown(e) {
+  const btn = e.target.closest('[data-act="inc"],[data-act="dec"]');
+  if (!btn) return;
+  e.preventDefault();
+  startHold(e, btn);
+}
+
+/* ---- Мини-ввод дельты (тап по числу): «−47 потратил / +12 нашёл» без полного редактора ---- */
+let deltaId = null;
+function openDeltaModal(id) {
+  const it = items.find(x => x.id === id);
+  if (!it) return;
+  deltaId = id;
+  el('delta-name').textContent = it.name;
+  el('delta-input').value = '';
+  el('modal-delta').hidden = false;
+  setTimeout(() => el('delta-input').focus(), 50);
+}
+function closeDeltaModal() { el('modal-delta').hidden = true; deltaId = null; }
+function applyDelta(sign) {
+  const it = items.find(x => x.id === deltaId);
+  if (it) {
+    const v = Math.max(0, Math.round(num(el('delta-input').value, 0)));
+    if (v > 0) {
+      it.qty = Math.max(0, it.qty + sign * v);
+      save();
+      render();
+    }
+  }
+  closeDeltaModal();
 }
 
 /* ============ Грузоподъёмность ============ */
@@ -377,6 +495,10 @@ function bind() {
   el('budget').addEventListener('input', onBudgetInput);
 
   el('list').addEventListener('click', onListClick);
+  el('list').addEventListener('pointerdown', onListPointerDown);
+  el('list').addEventListener('pointermove', moveHold);
+  window.addEventListener('pointerup', endHold);
+  window.addEventListener('pointercancel', endHold);
   el('fab-add').addEventListener('click', () => openEditor(null));
 
   // Редактор
@@ -389,6 +511,16 @@ function bind() {
   });
   el('f-price').addEventListener('input', liveDensity);
   el('f-weight').addEventListener('input', liveDensity);
+
+  // Мини-ввод дельты
+  el('delta-cancel').addEventListener('click', closeDeltaModal);
+  el('delta-minus').addEventListener('click', () => applyDelta(-1));
+  el('delta-plus').addEventListener('click', () => applyDelta(1));
+  el('modal-delta').addEventListener('click', e => { if (e.target === el('modal-delta')) closeDeltaModal(); });
+
+  // Не потерять отложенную запись при сворачивании/закрытии (PWA)
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flushCommit(); });
+  window.addEventListener('pagehide', flushCommit);
 
   // Закрытие модалок по фону
   el('modal').addEventListener('click', e => { if (e.target === el('modal')) closeEditor(); });
