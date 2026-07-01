@@ -1,0 +1,10 @@
+{
+  "source": "stalker2-screenshot",
+  "note": "Собрано вручную из скринов инвентаря. budget = свободный вес (80 - 52.2).",
+  "budget": 27.8,
+  "items": [
+    { "name": "Батон",         "price": 40, "weight": 0.9,  "qty": 3, "category": "food" },
+    { "name": "Колбаса",       "price": 65, "weight": 0.4,  "qty": 5, "category": "food" },
+    { "name": "9×18 мм ПСТ",   "price": 6,  "weight": 0.05, "qty": 9, "category": "ammo" }
+  ]
+}

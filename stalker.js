@@ -478,6 +478,51 @@ function importData(file) {
   reader.readAsText(file);
 }
 
+// Слияние из игрового дампа/скринов: обновляет по имени, добавляет новое, ничего не затирает.
+function mergeImportData(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const rawItems = Array.isArray(data) ? data : (data.items || []);
+      if (!rawItems.length) { alert('В файле нет предметов для синка.'); return; }
+      const byName = new Map(items.map(it => [it.name.trim().toLowerCase(), it]));
+      let added = 0, updated = 0;
+      for (const r of rawItems) {
+        const name = String(r.name || '').trim();
+        if (!name) continue;
+        const price = Math.max(0, num(r.price, 0));
+        const weight = Math.max(0, num(r.weight, 0));
+        const qty = Math.max(0, Math.round(num(r.qty, 1)));
+        const cat = CAT_BY_ID[r.category] ? r.category : null;
+        const ex = byName.get(name.toLowerCase());
+        if (ex) {
+          ex.price = price; ex.weight = weight; ex.qty = qty;
+          if (cat) ex.category = cat;
+          updated++;
+        } else {
+          const it = { id: uid(), name, price, weight, qty, category: cat || DEFAULT_CAT };
+          items.push(it);
+          byName.set(name.toLowerCase(), it);
+          added++;
+        }
+      }
+      if (!Array.isArray(data) && data.budget != null) {
+        budget = Math.max(0, num(data.budget, budget));
+        el('budget').value = budget || '';
+      }
+      save();
+      render();
+      closeMenu();
+      alert(`Синхронизировано из игры: добавлено ${added}, обновлено ${updated}.`);
+    } catch (e) {
+      alert('Не удалось прочитать файл синка.');
+      console.error(e);
+    }
+  };
+  reader.readAsText(file);
+}
+
 function wipeAll() {
   if (!confirm('Очистить весь список предметов? Это необратимо.')) return;
   items = [];
@@ -529,6 +574,8 @@ function bind() {
   // Меню
   el('menu-btn').addEventListener('click', () => el('menu').hidden = false);
   el('menu-close').addEventListener('click', closeMenu);
+  el('sync-btn').addEventListener('click', () => el('sync-file').click());
+  el('sync-file').addEventListener('change', e => { if (e.target.files[0]) mergeImportData(e.target.files[0]); });
   el('export-btn').addEventListener('click', exportData);
   el('import-btn').addEventListener('click', () => el('import-file').click());
   el('import-file').addEventListener('change', e => { if (e.target.files[0]) importData(e.target.files[0]); });
