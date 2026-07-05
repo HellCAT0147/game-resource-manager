@@ -486,8 +486,60 @@ local function armSniffer()
     log(">>> Теперь: открой инвентарь и наведи мышку на 2-3 предмета. Потом зови Клода.")
 end
 
+-- ================= F7: перепись нативных ФУНКЦИЙ GSC =================
+-- Квестовые BP зовут нативные геттеры/гиверы предметов — такие функции
+-- вызываемы из Lua напрямую (без хуков). Ищем их по именам.
+local FN_KEYWORDS = { "item", "invent", "money", "weight", "cost", "price", "count", "stash", "contain", "sid", "loot", "backpack" }
+local function fnInteresting(s)
+    s = string.lower(tostring(s))
+    for _, k in ipairs(FN_KEYWORDS) do
+        if string.find(s, k, 1, true) then return true end
+    end
+    return false
+end
+
+local function functionCensus()
+    log("---- F7: перепись функций /Script/Stalker2 (жди) ----")
+    local names = {}
+    safe(function()
+        ForEachUObject(function(obj)
+            pcall(function()
+                if obj:GetClass():GetFName():ToString() == "Function" then
+                    local full = tostring(obj:GetFullName())
+                    -- только нативные сталкерские и только с ключевыми словами
+                    if string.find(full, "/Script/Stalker2.", 1, true) and fnInteresting(full) then
+                        names[#names + 1] = string.gsub(full, "^Function /Script/Stalker2%.", "")
+                    end
+                end
+            end)
+        end)
+    end)
+    table.sort(names)
+    log("Функций с ключевыми словами: " .. #names)
+    for i, n in ipairs(names) do
+        if i > 400 then log("... (обрезано на 400)") break end
+        log("  FN " .. n)
+    end
+    log("---- конец переписи функций ----")
+end
+
 if _LOOT_MODE == "deep" then
-    armSniffer()
+    -- F7: топ-10 ₽/кг в лог (запасной просмотр без панели).
+    -- История разведки полного автосъёма — в README («кровью написано») и в git-истории:
+    -- хуки на нативные функции не срабатывают (вызовы мимо ProcessEvent),
+    -- CppMediator (квестовый мост) умеет считать предметы только по SID —
+    -- перечислителя инвентаря у GSC нет. Плато: hover-свайп остаётся способом.
+    local list = {}
+    for _, it in pairs(_LOOT_ITEMS) do list[#list + 1] = it end
+    table.sort(list, function(a, b) return densityOf(a) > densityOf(b) end)
+    log("=== ТОП ₽/кг ===")
+    for i, it in ipairs(list) do
+        if i > 10 then break end
+        local d = densityOf(it)
+        local ds = (d == math.huge) and "∞" or tostring(math.floor(d + 0.5))
+        log(string.format("%2d. %s — %s ₽/кг%s", i, it.name, ds, it.qty > 1 and (" x" .. it.qty) or ""))
+    end
+    log("Всего позиций: " .. #list)
 else
     fastScan()
 end
