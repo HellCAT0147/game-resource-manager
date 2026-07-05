@@ -1,10 +1,32 @@
 {
-  "source": "stalker2-screenshot",
-  "note": "Собрано вручную из скринов инвентаря. budget = свободный вес (80 - 52.2).",
-  "budget": 27.8,
+  "source": "stalker2-hover-scan",
+  "note": "Живой снимок инвентаря из игры (LootHelper, hover-скан тултипа). Категории проставлены вручную. Износ оружия/брони — в имени, цена уже с учётом состояния.",
   "items": [
-    { "name": "Батон",         "price": 40, "weight": 0.9,  "qty": 3, "category": "food" },
-    { "name": "Колбаса",       "price": 65, "weight": 0.4,  "qty": 5, "category": "food" },
-    { "name": "9×18 мм ПСТ",   "price": 6,  "weight": 0.05, "qty": 9, "category": "ammo" }
+    { "name": ".45 ACP FMJ",                     "price": 19,    "weight": 0.008, "qty": 20,  "category": "ammo" },
+    { "name": "5.45x39 мм ПС",                   "price": 22,    "weight": 0.011, "qty": 137, "category": "ammo" },
+    { "name": "9x18 мм ПСТ",                     "price": 6,     "weight": 0.006, "qty": 32,  "category": "ammo" },
+    { "name": "9x18 мм РГ028",                   "price": 12,    "weight": 0.006, "qty": 87,  "category": "ammo" },
+    { "name": "9x19 мм +P",                      "price": 25,    "weight": 0.011, "qty": 95,  "category": "ammo" },
+    { "name": "9x19 мм FMJ",                     "price": 12,    "weight": 0.01,  "qty": 60,  "category": "ammo" },
+    { "name": "Viper-5 [86%]",                   "price": 14314, "weight": 2.5,   "qty": 1,   "category": "rifle" },
+    { "name": "АКМ-74С Гриши Валенка [56%]",     "price": 7933,  "weight": 3.301, "qty": 1,   "category": "rifle" },
+    { "name": "АКМ-74У [44%]",                   "price": 3038,  "weight": 2.699, "qty": 1,   "category": "rifle" },
+    { "name": "Аптечка",                         "price": 270,   "weight": 0.2,   "qty": 9,   "category": "meds" },
+    { "name": "Батон",                           "price": 40,    "weight": 0.3,   "qty": 2,   "category": "food" },
+    { "name": "Бинт",                            "price": 150,   "weight": 0.05,  "qty": 18,  "category": "meds" },
+    { "name": "Вода",                            "price": 65,    "weight": 0.25,  "qty": 6,   "category": "food" },
+    { "name": "Водка «Казаки»",                  "price": 145,   "weight": 0.35,  "qty": 5,   "category": "antirad" },
+    { "name": "Детектор «Отклик»",               "price": 2000,  "weight": 0.4,   "qty": 1,   "category": "other" },
+    { "name": "КПК мсоповца",                    "price": 150,   "weight": 0.2,   "qty": 1,   "category": "other" },
+    { "name": "Колбаса",                         "price": 65,    "weight": 0.4,   "qty": 2,   "category": "food" },
+    { "name": "Комбинезон «Дебют» [99%]",        "price": 23037, "weight": 3.0,   "qty": 1,   "category": "armor" },
+    { "name": "Консервы",                        "price": 125,   "weight": 0.4,   "qty": 7,   "category": "food" },
+    { "name": "Орган полтергейста",              "price": 6500,  "weight": 0.75,  "qty": 1,   "category": "other" },
+    { "name": "Пиво",                            "price": 75,    "weight": 0.2,   "qty": 1,   "category": "antirad" },
+    { "name": "Пистолет Скифа [93%]",            "price": 2554,  "weight": 0.0,   "qty": 1,   "category": "pistol" },
+    { "name": "Противогаз «Оптик» [99%]",        "price": 10435, "weight": 2.0,   "qty": 1,   "category": "armor" },
+    { "name": "Противорадиационные препараты",   "price": 500,   "weight": 0.1,   "qty": 2,   "category": "antirad" },
+    { "name": "РГД-5",                           "price": 400,   "weight": 0.2,   "qty": 1,   "category": "grenade" },
+    { "name": "Энергетик NON STOP",              "price": 190,   "weight": 0.3,   "qty": 1,   "category": "food" }
   ]
 }
