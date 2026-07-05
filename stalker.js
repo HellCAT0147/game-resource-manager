@@ -5,7 +5,8 @@
    Помогает по цене и весу решить, что нести торговцу, а что бросить.
    Никаких стартовых данных (без спойлеров): всё добавляется вручную.
    Главная метрика — выгодность = цена / вес (₽ за кг).
-   Список разделён на группы по категориям.
+   Список разделён на группы по категориям; группировку можно выключить
+   (переключатель у поля «Унести») — тогда один сквозной список.
    Данные и грузоподъёмность хранятся в localStorage; есть импорт/экспорт.
    ============================================================ */
 
@@ -33,6 +34,7 @@ const STORAGE_KEY = 'stalker2-resource-tracker:v1';
 let items = [];
 let budget = 0;                 // грузоподъёмность, кг (0 = не задано)
 let sortMode = 'value';         // value | price | weight | name
+let groupByCat = true;          // false = общий список без групп (сравнение сквозь категории)
 let editingId = null;
 
 /* ============ Утилиты ============ */
@@ -70,6 +72,7 @@ function load() {
       const data = JSON.parse(raw);
       items = normalizeItems(Array.isArray(data) ? data : data.items);
       budget = num(Array.isArray(data) ? 0 : data.budget, 0);
+      groupByCat = Array.isArray(data) ? true : data.groupByCat !== false;
     }
   } catch (e) { console.warn('Ошибка чтения хранилища', e); }
 }
@@ -88,7 +91,7 @@ function normalizeItems(arr) {
 
 function save() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, budget, items }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, budget, groupByCat, items }));
   } catch (e) {
     alert('Не удалось сохранить — возможно, переполнено хранилище браузера.');
     console.error(e);
@@ -178,11 +181,14 @@ function cardHTML(it, tier, takeUnits) {
     ? `<button class="qty-btn remove" data-act="remove" type="button" aria-label="Убрать из списка">✕</button>`
     : `<button class="qty-btn" data-act="dec" type="button" aria-label="Убавить один">−</button>`;
 
+  // В общем списке (без групп) категорию показывает emoji прямо на карточке.
+  const catIco = groupByCat ? '' : (CAT_BY_ID[it.category] ? CAT_BY_ID[it.category].icon + ' ' : '');
+
   return `
     <li class="${cls}" data-id="${it.id}" data-tier="${tier}"${takeAttr}>
       <div class="item-dens" data-act="edit"><b>${fmt(dens)}</b><span>₽/кг</span></div>
       <div class="card-body" data-act="edit">
-        <div class="card-name">${escapeHTML(it.name)}<span class="edit-hint">✎</span></div>
+        <div class="card-name">${catIco}${escapeHTML(it.name)}<span class="edit-hint">✎</span></div>
         <div class="item-meta">${meta}</div>
         ${takeBadge}
       </div>
@@ -201,13 +207,21 @@ function render() {
   const filtered = items.filter(it => matchesSearch(it, q));
 
   let html = '';
-  for (const cat of CATEGORIES) {
-    const group = sortItems(filtered.filter(it => it.category === cat.id));
-    if (!group.length) continue;
-    const gValue = group.reduce((s, it) => s + it.price * it.qty, 0);
-    const gWeight = group.reduce((s, it) => s + it.weight * it.qty, 0);
-    html += groupHeadHTML(cat, group.length, gValue, gWeight);
-    html += group.map(it =>
+  if (groupByCat) {
+    for (const cat of CATEGORIES) {
+      const group = sortItems(filtered.filter(it => it.category === cat.id));
+      if (!group.length) continue;
+      const gValue = group.reduce((s, it) => s + it.price * it.qty, 0);
+      const gWeight = group.reduce((s, it) => s + it.weight * it.qty, 0);
+      html += groupHeadHTML(cat, group.length, gValue, gWeight);
+      html += group.map(it =>
+        cardHTML(it, tiers.get(it.id) || 'mid', carry ? (carry.take.get(it.id) || 0) : null)
+      ).join('');
+    }
+  } else {
+    // Без групп: один сквозной список по текущей сортировке —
+    // еда, медикаменты и патроны меряются выгодностью на равных.
+    html = sortItems([...filtered]).map(it =>
       cardHTML(it, tiers.get(it.id) || 'mid', carry ? (carry.take.get(it.id) || 0) : null)
     ).join('');
   }
@@ -538,6 +552,12 @@ function bind() {
   el('search').addEventListener('input', render);
   el('sort').addEventListener('change', () => { sortMode = el('sort').value; render(); });
   el('budget').addEventListener('input', onBudgetInput);
+  el('group-toggle').addEventListener('click', () => {
+    groupByCat = !groupByCat;
+    el('group-toggle').setAttribute('aria-pressed', String(groupByCat));
+    save();
+    render();
+  });
 
   el('list').addEventListener('click', onListClick);
   el('list').addEventListener('pointerdown', onListPointerDown);
@@ -587,5 +607,6 @@ buildCategoryPicker();
 load();
 el('budget').value = budget || '';
 el('sort').value = sortMode;
+el('group-toggle').setAttribute('aria-pressed', String(groupByCat));
 bind();
 render();

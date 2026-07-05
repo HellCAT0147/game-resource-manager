@@ -443,6 +443,24 @@ body.theme-stalker {
   font-size: 15px; outline: none;
 }
 #budget:focus { border-color: var(--accent); }
+
+/* Переключатель группировки: вкл = группы по категориям, выкл = общий список */
+.group-toggle {
+  width: 44px; height: 44px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.group-toggle svg { width: 22px; height: 22px; }
+.group-toggle .ico-off { display: none; }
+.group-toggle[aria-pressed="false"] { border-color: rgba(255, 255, 255, 0.08); color: var(--muted); }
+.group-toggle[aria-pressed="false"] .ico-on { display: none; }
+.group-toggle[aria-pressed="false"] .ico-off { display: block; }
+
 .carry-summary {
   flex: 1; min-width: 170px;
   font-size: 13px; line-height: 1.4; color: var(--text);
