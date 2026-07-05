@@ -1,8 +1,8 @@
--- LootHelper / scan.lua — перечитывается на каждый F8/F7 (см. main.lua).
--- Режим: _LOOT_MODE = "fast" (F8) | "deep" (F7).
+-- LootHelper / scan.lua — перечитывается на каждый F9/F7 (см. main.lua).
+-- Режим: _LOOT_MODE = "fast" (F9) | "deep" (F7).
 --
--- v9: HOVER-СКАНЕР. Рабочий канал чтения: тултип инвентаря, W_Text_C:GetText():ToString().
--- F8 = вкл/выкл запись. Пока запись включена, раз в 250 мс читаем тултип;
+-- HOVER-СКАНЕР. Рабочий канал чтения: тултип инвентаря, W_Text_C:GetText():ToString().
+-- F9 = вкл/выкл запись. Пока запись включена, читаем тултип раз в 100 мс;
 -- новые предметы копятся (дедуп) и пишутся в inventory_dump.json.
 -- Кол-во в стаке: qty = вес_стака / вес_за_штуку (тултип даёт оба).
 -- Износ < 100% дописывается к имени: «АКМ-74С [74%]».
@@ -12,6 +12,14 @@
 local UEHelpers = require("UEHelpers")
 
 local DUMP_PATH = "D:/Games/STALKER2/Stalker2/Binaries/Win64/ue4ss/Mods/LootHelper/inventory_dump.json"
+-- Флаг «запись идёт» для внешней панели (REC-индикатор): при записи файл
+-- освежается каждые ~2 с, при выключении удаляется. Панель гасит REC, если файл старше 5 с.
+local FLAG_PATH = "D:/Games/STALKER2/Stalker2/Binaries/Win64/ue4ss/Mods/LootHelper/recording.flag"
+
+local function touchFlag()
+    local f = io.open(FLAG_PATH, "w")
+    if f then f:write(tostring(os.time())) f:close() end
+end
 
 local function log(msg)
     print("[LootHelper] " .. tostring(msg) .. "\n")
@@ -272,7 +280,7 @@ local function buildOverlayText()
         end
     end
     if #list > 14 then lines[#lines + 1] = "… ещё " .. (#list - 14) .. " поз." end
-    if #list == 0 then lines[#lines + 1] = "(пусто: включи запись F8 и наведи на предметы)" end
+    if #list == 0 then lines[#lines + 1] = "(пусто: включи запись F9 и наведи на предметы)" end
     lines[#lines + 1] = string.format("Итого: %d поз · ₽%d · %.1f кг", #list, totalV, totalW)
     return table.concat(lines, "\n")
 end
@@ -322,6 +330,9 @@ end
 
 local function recordTick()
     if not _LOOT_POLL then return end
+    -- Держим REC-флаг свежим для панели (каждые ~20 тиков ≈ 2 с).
+    _LOOT_TICKN = (_LOOT_TICKN or 0) + 1
+    if _LOOT_TICKN % 20 == 1 then touchFlag() end
     -- Ускоряем тултип (float-запись, безопасно): свайп по сетке вместо ожидания на каждом.
     if not _LOOT_FASTTIP then
         local inv = getInventoryWidget()
@@ -358,16 +369,17 @@ end
 -- (урок зомби-цикла: замыкание переживает dofile и держит старый код).
 _LOOT_TICK = recordTick
 
--- ================= F8: вкл/выкл запись =================
+-- ================= F9: вкл/выкл запись =================
 local function fastScan()
     _LOOT_POLL = not _LOOT_POLL
     if _LOOT_POLL then
         -- Каждое включение — новый снимок инвентаря с нуля.
         _LOOT_ITEMS = {}
         _LOOT_COUNT = 0
+        touchFlag()
         log("=== ЗАПИСЬ ВКЛ (список очищен) ===")
         log("Веди курсором по предметам инвентаря (жди тултип на каждом).")
-        log("Повторный F8 — стоп. Файл: " .. DUMP_PATH)
+        log("Повторный F9 — стоп. Файл: " .. DUMP_PATH)
         if not _LOOT_LOOP_STARTED then
             _LOOT_LOOP_STARTED = true
             -- 100 мс: поспевать за автосвайпом панели (курсор ~120 мс на ячейку).
@@ -380,6 +392,7 @@ local function fastScan()
             end)
         end
     else
+        pcall(os.remove, FLAG_PATH)
         log("=== ЗАПИСЬ ВЫКЛ === собрано предметов: " .. _LOOT_COUNT)
         log("Файл: " .. DUMP_PATH)
         writeDump()

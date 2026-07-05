@@ -3,7 +3,7 @@
 #   • НА ВЫБРОС — худшие по ₽/кг (что выкинуть при перегрузе с минимальной потерей денег)
 #   • ТОП — лучшие по ₽/кг (что нести/продавать в первую очередь)
 # Глобальные клавиши (работают, когда фокус в игре):
-#   Ctrl+F9  — автосвайп: курсор сам пробегает по сетке инвентаря (запись F8 должна быть ВКЛ)
+#   F10      — автосвайп: курсор сам пробегает по сетке инвентаря (запись F9 должна быть ВКЛ)
 #   Ctrl+F10 — калибровка: центр ЛЕВОЙ-ВЕРХНЕЙ ячейки сетки
 #   Ctrl+F11 — калибровка: центр ПРАВОЙ-НИЖНЕЙ ячейки сетки
 # Требование: игра в режиме «оконный без границ» (borderless), иначе панель не видна.
@@ -14,6 +14,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 
 # ============ Пути и конфиг ============
 $DumpPath   = 'D:\Games\STALKER2\Stalker2\Binaries\Win64\ue4ss\Mods\LootHelper\inventory_dump.json'
+$RecFlag    = 'D:\Games\STALKER2\Stalker2\Binaries\Win64\ue4ss\Mods\LootHelper\recording.flag'
 $ConfigPath = Join-Path $PSScriptRoot 'panel-config.json'
 
 $Config = [pscustomobject]@{
@@ -88,7 +89,7 @@ function Build-Text {
     $pool = $script:Items
     if ($pool.Count -eq 0) {
         $lines.Add('Дампа пока нет.')
-        $lines.Add('В игре: I -> F8 -> Ctrl+F9 -> F8')
+        $lines.Add('В игре: I -> F9 -> F10 -> F9')
         return ($lines -join "`n")
     }
     if ($mode -eq 'drop') {
@@ -155,6 +156,7 @@ function Invoke-Sweep {
       <DockPanel Margin="0,0,0,6">
         <TextBlock Name="Title" Text="☢ ВЫГОДНЫЙ ХАБАР" Foreground="#D9C784" FontFamily="Consolas" FontSize="14" FontWeight="Bold"/>
         <TextBlock Name="BtnClose" Text=" ✕ " Foreground="#888" FontFamily="Consolas" FontSize="14" HorizontalAlignment="Right" Cursor="Hand" DockPanel.Dock="Right"/>
+        <TextBlock Name="RecDot" Text="○ rec" Foreground="#555" FontFamily="Consolas" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" DockPanel.Dock="Right" Margin="0,0,6,0"/>
         <TextBlock Name="BtnMode" Text=" [выброс] " Foreground="#A8B47A" FontFamily="Consolas" FontSize="13" HorizontalAlignment="Right" DockPanel.Dock="Right" Cursor="Hand"/>
       </DockPanel>
       <TextBlock Name="Body" Foreground="#CFCBB8" FontFamily="Consolas" FontSize="13" Text="..." />
@@ -170,6 +172,7 @@ $Window = [Windows.Markup.XamlReader]::Load($reader)
 $Body   = $Window.FindName('Body')
 $Status = $Window.FindName('Status')
 $BtnMode = $Window.FindName('BtnMode')
+$RecDot = $Window.FindName('RecDot')
 $BtnClose = $Window.FindName('BtnClose')
 $ChkGear = $Window.FindName('ChkGear')
 
@@ -186,7 +189,7 @@ function Update-View {
     if ($Config.tlX -ne 0 -or $Config.tlY -ne 0) { $cal = 'калибровка ок' }
     $extra = ''
     if ($script:StatusExtra -ne '') { $extra = ' · ' + $script:StatusExtra }
-    $Status.Text = ('дамп: {0} · {1} · Ctrl+F9 свайп{2}' -f $script:DumpTime, $cal, $extra)
+    $Status.Text = ('дамп: {0} · {1} · F10 свайп{2}' -f $script:DumpTime, $cal, $extra)
     if ($script:Mode -eq 'drop') { $BtnMode.Text = ' [выброс] ' } else { $BtnMode.Text = ' [топ] ' }
 }
 
@@ -213,15 +216,29 @@ $timer.Add_Tick({
         $script:LastWrite = $t
         Update-View
     }
+    # REC-индикатор: флаг свежее 5 секунд = запись идёт (мигаем как камкордер).
+    $rec = $false
+    if (Test-Path $RecFlag) {
+        $age = (Get-Date) - (Get-Item $RecFlag).LastWriteTime
+        if ($age.TotalSeconds -lt 5) { $rec = $true }
+    }
+    $script:Blink = -not $script:Blink
+    if ($rec) {
+        $RecDot.Text = '[#] REC'
+        if ($script:Blink) { $RecDot.Foreground = '#FF5040' } else { $RecDot.Foreground = '#7A2A22' }
+    } else {
+        $RecDot.Text = '[ ] rec'
+        $RecDot.Foreground = '#555555'
+    }
 })
 $timer.Start()
 
-# Глобальные хоткеи: Ctrl+F9 свайп, F10/F11 калибровка.
+# Глобальные хоткеи: F10 свайп, F10/F11 калибровка.
 $Window.Add_SourceInitialized({
     $helper = New-Object System.Windows.Interop.WindowInteropHelper($Window)
     $script:Hwnd = $helper.Handle
-    [Native.Win32]::RegisterHotKey($script:Hwnd, 1, 2, 0x78) | Out-Null # Ctrl+F9
-    [Native.Win32]::RegisterHotKey($script:Hwnd, 2, 2, 0x79) | Out-Null # Ctrl+F10
+    [Native.Win32]::RegisterHotKey($script:Hwnd, 1, 0, 0x79) | Out-Null # F10 (свайп)
+    [Native.Win32]::RegisterHotKey($script:Hwnd, 2, 2, 0x79) | Out-Null # Ctrl+F10 (калибровка ЛВ)
     [Native.Win32]::RegisterHotKey($script:Hwnd, 3, 2, 0x7A) | Out-Null # Ctrl+F11
     $source = [System.Windows.Interop.HwndSource]::FromHwnd($script:Hwnd)
     $source.AddHook({

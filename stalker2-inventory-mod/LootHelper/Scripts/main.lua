@@ -2,8 +2,9 @@
 -- Вся логика разведки/чтения — в scan.lua, который перечитывается dofile'ом
 -- на КАЖДОЕ нажатие клавиши: скрипт можно править, НЕ перезапуская игру.
 --
--- F8 — вкл/выкл запись инвентаря (hover-скан тултипа).
--- F7 — вкл/выкл оверлей «Выгодный хабар» (рейтинг ₽/кг поверх игры).
+-- F9 — вкл/выкл запись инвентаря (hover-скан тултипа).
+--      ВНИМАНИЕ: перебинди быструю загрузку с F9 в настройках игры!
+-- F7 — топ-10 ₽/кг в лог (запасной просмотр).
 --
 -- Всё пишется в UE4SS.log (Stalker2/Binaries/Win64/ue4ss/UE4SS.log).
 
@@ -13,7 +14,7 @@ local function log(msg)
     print("[LootHelper] " .. tostring(msg) .. "\n")
 end
 
-log("Загружен. В игре: F8 = запись инвентаря, F7 = оверлей ₽/кг.")
+log("Загружен. В игре: F9 = запись инвентаря, F7 = топ ₽/кг в лог.")
 
 local function runScan(mode)
     ExecuteInGameThread(function()
@@ -23,5 +24,5 @@ local function runScan(mode)
     end)
 end
 
-RegisterKeyBind(Key.F8, function() runScan("fast") end)
+RegisterKeyBind(Key.F9, function() runScan("fast") end)
 RegisterKeyBind(Key.F7, function() runScan("deep") end)
