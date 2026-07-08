@@ -22,6 +22,8 @@ $Config = [pscustomobject]@{
     tlX = 0; tlY = 0             # центр левой-верхней ячейки (F10)
     brX = 0; brY = 0             # центр правой-нижней ячейки (F11)
     delayMs = 120                # пауза курсора на ячейке при свайпе
+    scrollClicks = 4             # на сколько «кликов» колеса листать вниз между проходами
+    maxPasses = 25               # предохранитель: макс. число проходов по сетке
     winX = 40; winY = 40         # позиция панели
     hideGear = $true             # не предлагать выкидывать оружие/броню
 }
@@ -41,6 +43,7 @@ function Save-Config {
 Add-Type -Namespace Native -Name Win32 -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
 [DllImport("user32.dll")] public static extern bool GetCursorPos(out System.Drawing.Point p);
+[DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, int dx, int dy, int dwData, IntPtr dwExtraInfo);
 [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
 [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint mods, uint vk);
 [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
@@ -124,12 +127,31 @@ function Build-Text {
     return ($lines -join "`n")
 }
 
-# ============ Автосвайп ============
-function Invoke-Sweep {
-    if ($Config.tlX -eq 0 -and $Config.tlY -eq 0) { $script:StatusExtra = 'нет калибровки: Ctrl+F10/F11'; Update-View; return }
-    if ($Config.brX -le $Config.tlX) { $script:StatusExtra = 'калибровка кривая: Ctrl+F10/F11 заново'; Update-View; return }
-    $hwnd = Get-GameWindow
-    if ($hwnd -ne [IntPtr]::Zero) { [Native.Win32]::SetForegroundWindow($hwnd) | Out-Null; Start-Sleep -Milliseconds 200 }
+# ============ Автосвайп (многостраничный, с авто-остановкой) ============
+$MOUSEEVENTF_WHEEL = 0x0800
+$WHEEL_DELTA = 120
+
+# Свежий ли флаг записи (мод пишет его при F9): свайп без записи бессмыслен.
+function Test-Recording {
+    if (-not (Test-Path $RecFlag)) { return $false }
+    return ((Get-Date) - (Get-Item $RecFlag).LastWriteTime).TotalSeconds -lt 5
+}
+
+# Число предметов в дампе (для детекции «новых не появилось → дно»).
+# -1 = файл читается в момент записи (нестрашно, просто пропустим сравнение).
+function Get-DumpItemCount {
+    if (-not (Test-Path $DumpPath)) { return 0 }
+    try { return @((Get-Content $DumpPath -Raw -Encoding UTF8 | ConvertFrom-Json).items).Count }
+    catch { return -1 }
+}
+
+# Колесо мыши: clicks>0 — вверх, clicks<0 — вниз. Курсор должен быть над сеткой.
+function Send-Wheel([int]$clicks) {
+    [Native.Win32]::mouse_event($MOUSEEVENTF_WHEEL, 0, 0, $WHEEL_DELTA * $clicks, [IntPtr]::Zero)
+}
+
+# Один проход курсором по видимой сетке (наводит тултип на каждую ячейку).
+function Step-SweepGrid {
     $cols = [math]::Max(1, [int]$Config.cols); $rows = [math]::Max(1, [int]$Config.rows)
     $dx = 0; $dy = 0
     if ($cols -gt 1) { $dx = ($Config.brX - $Config.tlX) / ($cols - 1) }
@@ -141,7 +163,47 @@ function Invoke-Sweep {
             Start-Sleep -Milliseconds ([int]$Config.delayMs)
         }
     }
-    $script:StatusExtra = 'свайп готов'
+}
+
+function Invoke-Sweep {
+    if ($Config.tlX -eq 0 -and $Config.tlY -eq 0) { $script:StatusExtra = 'нет калибровки: Ctrl+F10/F11'; Update-View; return }
+    if ($Config.brX -le $Config.tlX) { $script:StatusExtra = 'калибровка кривая: Ctrl+F10/F11 заново'; Update-View; return }
+    if (-not (Test-Recording)) { $script:StatusExtra = 'включи запись сначала: F9'; Update-View; return }
+
+    $hwnd = Get-GameWindow
+    if ($hwnd -ne [IntPtr]::Zero) { [Native.Win32]::SetForegroundWindow($hwnd) | Out-Null; Start-Sleep -Milliseconds 200 }
+
+    # Центр сетки — точка, над которой крутим колесо.
+    $gx = [int](($Config.tlX + $Config.brX) / 2)
+    $gy = [int](($Config.tlY + $Config.brY) / 2)
+
+    # 1) Прокрутка в самый верх (с запасом — лишние клики вверх безвредны).
+    [Native.Win32]::SetCursorPos($gx, $gy) | Out-Null
+    for ($i = 0; $i -lt 30; $i++) { Send-Wheel 1; Start-Sleep -Milliseconds 12 }
+    Start-Sleep -Milliseconds 200
+
+    # 2) Проход → прокрутка вниз → проход, пока появляются новые предметы.
+    #    Перекрытие рядов безвредно (мод дедуплицирует); стоп, когда новых нет.
+    $prev = -1
+    $pass = 0
+    $maxPasses = [math]::Max(1, [int]$Config.maxPasses)
+    while ($pass -lt $maxPasses) {
+        $pass++
+        Step-SweepGrid
+        Start-Sleep -Milliseconds 350           # дать моду дописать последний тултип
+        $count = Get-DumpItemCount
+        $script:StatusExtra = "проход $pass · предметов: $count"
+        Update-View
+        if ($count -ge 0) {
+            if ($count -eq $prev) { break }     # ничего нового → уперлись в дно
+            $prev = $count
+        }
+        # Листаем вниз на следующую «страницу» (внахлёст).
+        [Native.Win32]::SetCursorPos($gx, $gy) | Out-Null
+        for ($i = 0; $i -lt [math]::Max(1, [int]$Config.scrollClicks); $i++) { Send-Wheel -1; Start-Sleep -Milliseconds 12 }
+        Start-Sleep -Milliseconds 200
+    }
+    $script:StatusExtra = "свайп готов: $pass проход(ов), предметов $prev"
     Update-View
 }
 
