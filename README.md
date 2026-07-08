@@ -1,3 +1,28 @@
+# 🎮 Game Resource Trackers
+
+*Mobile-first PWA companion apps for survival games — track what you're short on, and decide what loot is actually worth carrying.*
+
+**English** · [Русская версия ниже ↓](#-трекеры-ресурсов-игр)
+
+A pick-a-game launcher opens one of two trackers, each storing its data locally in the browser (offline-first, no server, no account):
+
+- **🌊 Subnautica 2** — a resource stock tracker: mark what's running low and auto-build a gathering list for your next run.
+- **☢️ S.T.A.L.K.E.R. 2 — "Profitable Loot"** — ranks inventory by **value density (₽/kg)** and greedily computes the optimal "what to carry" set under a weight budget, so you stop hauling worthless junk.
+
+### The standout: a live game → web inventory pipeline
+
+The S.T.A.L.K.E.R. 2 tracker is backed by a genuinely novel bridge that reads your **real, live in-game inventory** (see [`stalker2-inventory-mod/`](stalker2-inventory-mod/)):
+
+- A **UE4SS Lua mod** scrapes the in-game tooltip UI to capture every item's name, price, weight and stack count — necessary because the game's current v1.9 build defeats the usual engine-reflection modding APIs.
+- An **always-on-top overlay panel** (PowerShell/WPF) ranks items in real time — *"drop these for the least money lost per kg freed"* — and can **auto-sweep the inventory grid with the mouse** so you don't hover items by hand.
+- One keypress **syncs the snapshot into the PWA**.
+
+Along the way the project documents hard-won, previously unpublished knowledge about modding S.T.A.L.K.E.R. 2 v1.9 (working signature setup, engine-reflection limits, crash pitfalls) that is directly reusable by the game's modding community. See the [mod README](stalker2-inventory-mod/README.md) for the technical write-up.
+
+**Tech:** vanilla JS / HTML / CSS, no build step, `localStorage`, service-worker offline cache, Netlify deploy. Licensed under [MIT](LICENSE).
+
+---
+
 # 🎮 Трекеры ресурсов игр
 
 Мобильное веб-приложение (PWA): отмечай на складе, каких ресурсов не хватает, и собирай список на вылазку.
