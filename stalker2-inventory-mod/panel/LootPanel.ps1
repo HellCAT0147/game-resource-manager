@@ -3,7 +3,8 @@
 #   • НА ВЫБРОС — худшие по ₽/кг (что выкинуть при перегрузе с минимальной потерей денег)
 #   • ТОП — лучшие по ₽/кг (что нести/продавать в первую очередь)
 # Глобальные клавиши (работают, когда фокус в игре):
-#   F10      — автосвайп: курсор сам пробегает по сетке инвентаря (запись F9 должна быть ВКЛ)
+#   F11      — ПОЛНЫЙ авто-прогон: сам включает запись (F9), листает весь инвентарь, выключает
+#   F10      — автосвайп по УЖЕ включённой записи (ручной режим F9→F10→F9, для сравнения предметов)
 #   Ctrl+F10 — калибровка: центр ЛЕВОЙ-ВЕРХНЕЙ ячейки сетки
 #   Ctrl+F11 — калибровка: центр ПРАВОЙ-НИЖНЕЙ ячейки сетки
 # Требование: игра в режиме «оконный без границ» (borderless), иначе панель не видна.
@@ -44,6 +45,7 @@ Add-Type -Namespace Native -Name Win32 -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
 [DllImport("user32.dll")] public static extern bool GetCursorPos(out System.Drawing.Point p);
 [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, int dx, int dy, int dwData, IntPtr dwExtraInfo);
+[DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, IntPtr dwExtraInfo);
 [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
 [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint mods, uint vk);
 [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
@@ -150,6 +152,24 @@ function Send-Wheel([int]$clicks) {
     [Native.Win32]::mouse_event($MOUSEEVENTF_WHEEL, 0, 0, $WHEEL_DELTA * $clicks, [IntPtr]::Zero)
 }
 
+$VK_F9 = 0x78
+
+# Синтетическое нажатие клавиши в активное окно (F11 шлёт F9 моду вместо тебя).
+function Send-Key([byte]$vk) {
+    [Native.Win32]::keybd_event($vk, 0, 0, [IntPtr]::Zero)       # down
+    Start-Sleep -Milliseconds 40
+    [Native.Win32]::keybd_event($vk, 0, 2, [IntPtr]::Zero)       # up (KEYEVENTF_KEYUP)
+}
+
+# Ждём, пока запись перейдёт в нужное состояние ($want = $true/$false).
+function Wait-Rec([bool]$want, [int]$tries = 20) {
+    for ($i = 0; $i -lt $tries; $i++) {
+        Start-Sleep -Milliseconds 100
+        if ((Test-Recording) -eq $want) { return $true }
+    }
+    return $false
+}
+
 # Один проход курсором по видимой сетке (наводит тултип на каждую ячейку).
 function Step-SweepGrid {
     $cols = [math]::Max(1, [int]$Config.cols); $rows = [math]::Max(1, [int]$Config.rows)
@@ -165,11 +185,16 @@ function Step-SweepGrid {
     }
 }
 
-function Invoke-Sweep {
-    if ($Config.tlX -eq 0 -and $Config.tlY -eq 0) { $script:StatusExtra = 'нет калибровки: Ctrl+F10/F11'; Update-View; return }
-    if ($Config.brX -le $Config.tlX) { $script:StatusExtra = 'калибровка кривая: Ctrl+F10/F11 заново'; Update-View; return }
-    if (-not (Test-Recording)) { $script:StatusExtra = 'включи запись сначала: F9'; Update-View; return }
+# Калибровка выставлена? (иначе некуда водить курсор).
+function Test-Calibrated {
+    if ($Config.tlX -eq 0 -and $Config.tlY -eq 0) { $script:StatusExtra = 'нет калибровки: Ctrl+F10/F11'; Update-View; return $false }
+    if ($Config.brX -le $Config.tlX) { $script:StatusExtra = 'калибровка кривая: Ctrl+F10/F11 заново'; Update-View; return $false }
+    return $true
+}
 
+# Ядро автосвайпа: скролл в верх → проходы по сетке с листанием вниз → авто-стоп.
+# Предполагает, что запись УЖЕ включена и игра в фокусе. Используется и F10, и F11.
+function Run-PagedSweep {
     $hwnd = Get-GameWindow
     if ($hwnd -ne [IntPtr]::Zero) { [Native.Win32]::SetForegroundWindow($hwnd) | Out-Null; Start-Sleep -Milliseconds 200 }
 
@@ -203,7 +228,44 @@ function Invoke-Sweep {
         for ($i = 0; $i -lt [math]::Max(1, [int]$Config.scrollClicks); $i++) { Send-Wheel -1; Start-Sleep -Milliseconds 12 }
         Start-Sleep -Milliseconds 200
     }
-    $script:StatusExtra = "свайп готов: $pass проход(ов), предметов $prev"
+    return $prev
+}
+
+# F10 — свайп по УЖЕ включённой записи (ручной режим: F9 вкл → F10 → F9 выкл).
+function Invoke-Sweep {
+    if (-not (Test-Calibrated)) { return }
+    if (-not (Test-Recording)) { $script:StatusExtra = 'включи запись сначала: F9'; Update-View; return }
+    $n = Run-PagedSweep
+    $script:StatusExtra = "свайп готов, предметов $n"
+    Update-View
+}
+
+# F11 — полный авто-прогон: сам жмёт F9 (старт с чистого листа) → свайп → F9 (стоп).
+# F9 слушает мод, поэтому шлём игре синтетическое нажатие. Всегда даёт свежий снимок.
+function Invoke-FullAuto {
+    if (-not (Test-Calibrated)) { return }
+    $hwnd = Get-GameWindow
+    if ($hwnd -eq [IntPtr]::Zero) { $script:StatusExtra = 'игра не найдена — она запущена?'; Update-View; return }
+    [Native.Win32]::SetForegroundWindow($hwnd) | Out-Null; Start-Sleep -Milliseconds 250
+
+    # Была запись? Останавливаем, чтобы следующий старт дал чистый снимок.
+    if (Test-Recording) {
+        Send-Key $VK_F9
+        if (-not (Wait-Rec $false)) { $script:StatusExtra = 'не смог остановить прошлую запись (F9?)'; Update-View; return }
+    }
+    # Старт (мод очистит список).
+    $script:StatusExtra = 'авто: включаю запись…'; Update-View
+    Send-Key $VK_F9
+    if (-not (Wait-Rec $true)) { $script:StatusExtra = 'запись не включилась — F9 занят в игре? (перебинди quickload)'; Update-View; return }
+
+    $n = Run-PagedSweep
+
+    # Стоп.
+    $hwnd = Get-GameWindow
+    if ($hwnd -ne [IntPtr]::Zero) { [Native.Win32]::SetForegroundWindow($hwnd) | Out-Null; Start-Sleep -Milliseconds 150 }
+    Send-Key $VK_F9
+    Wait-Rec $false 10 | Out-Null
+    $script:StatusExtra = "авто-прогон готов, предметов $n"
     Update-View
 }
 
@@ -251,7 +313,7 @@ function Update-View {
     if ($Config.tlX -ne 0 -or $Config.tlY -ne 0) { $cal = 'калибровка ок' }
     $extra = ''
     if ($script:StatusExtra -ne '') { $extra = ' · ' + $script:StatusExtra }
-    $Status.Text = ('дамп: {0} · {1} · F10 свайп{2}' -f $script:DumpTime, $cal, $extra)
+    $Status.Text = ('дамп: {0} · {1} · F11 авто / F10 свайп{2}' -f $script:DumpTime, $cal, $extra)
     if ($script:Mode -eq 'drop') { $BtnMode.Text = ' [выброс] ' } else { $BtnMode.Text = ' [топ] ' }
 }
 
@@ -299,15 +361,17 @@ $timer.Start()
 $Window.Add_SourceInitialized({
     $helper = New-Object System.Windows.Interop.WindowInteropHelper($Window)
     $script:Hwnd = $helper.Handle
-    [Native.Win32]::RegisterHotKey($script:Hwnd, 1, 0, 0x79) | Out-Null # F10 (свайп)
+    [Native.Win32]::RegisterHotKey($script:Hwnd, 1, 0, 0x79) | Out-Null # F10 (свайп по включённой записи)
     [Native.Win32]::RegisterHotKey($script:Hwnd, 2, 2, 0x79) | Out-Null # Ctrl+F10 (калибровка ЛВ)
-    [Native.Win32]::RegisterHotKey($script:Hwnd, 3, 2, 0x7A) | Out-Null # Ctrl+F11
+    [Native.Win32]::RegisterHotKey($script:Hwnd, 3, 2, 0x7A) | Out-Null # Ctrl+F11 (калибровка ПН)
+    [Native.Win32]::RegisterHotKey($script:Hwnd, 4, 0, 0x7A) | Out-Null # F11 (полный авто-прогон)
     $source = [System.Windows.Interop.HwndSource]::FromHwnd($script:Hwnd)
     $source.AddHook({
         param($hwnd, $msg, $wParam, $lParam, $handled)
         if ($msg -eq 0x0312) { # WM_HOTKEY
             switch ([int]$wParam) {
                 1 { Invoke-Sweep }
+                4 { Invoke-FullAuto }
                 2 {
                     $p = New-Object System.Drawing.Point
                     [Native.Win32]::GetCursorPos([ref]$p) | Out-Null
@@ -338,6 +402,7 @@ $Window.Add_Closing({
         [Native.Win32]::UnregisterHotKey($script:Hwnd, 1) | Out-Null
         [Native.Win32]::UnregisterHotKey($script:Hwnd, 2) | Out-Null
         [Native.Win32]::UnregisterHotKey($script:Hwnd, 3) | Out-Null
+        [Native.Win32]::UnregisterHotKey($script:Hwnd, 4) | Out-Null
     }
 })
 
